@@ -65,7 +65,38 @@
         loading(false);
     }
 }}
-  async function submitComplaint(e){e.preventDefault();clearMessage('complaint-message');const f=new FormData(e.currentTarget);try{const {error}=await sb.from('mb_complaints').insert({user_id:currentUser.id,issue_type:f.get('issue_type'),description:f.get('description')});if(error)throw error;message('complaint-message','Your complaint has been submitted.');e.currentTarget.reset();}catch(err){message('complaint-message',err.message,true)}}
+  async function submitComplaint(e){```javascript
+async function submitComplaint(e) {
+    e.preventDefault();
+
+    // Save the form before the database operation
+    const form = e.currentTarget;
+
+    clearMessage('complaint-message');
+
+    const f = new FormData(form);
+
+    try {
+        const { error } = await sb
+            .from('mb_complaints')
+            .insert({
+                user_id: currentUser.id,
+                issue_type: f.get('issue_type'),
+                description: f.get('description')
+            });
+
+        if (error) throw error;
+
+        message('complaint-message', 'Your complaint has been submitted.');
+
+        // Clear the form
+        form.reset();
+
+    } catch (err) {
+        message('complaint-message', err.message, true);
+    }
+}
+```}
   async function loadAdmin(){try{const [p,a,t,c,n,l,tc,nc]=await Promise.all([sb.from('mb_profiles').select('id,full_name,phone,email,role,status,created_at').eq('role','customer').order('created_at',{ascending:false}),sb.from('mb_accounts').select('balance,user_id,account_number'),sb.from('mb_transactions').select('*').order('created_at',{ascending:false}).limit(100),sb.from('mb_complaints').select('*').order('created_at',{ascending:false}),sb.from('mb_notifications').select('*').order('created_at',{ascending:false}).limit(30),sb.from('mb_audit_logs').select('*').order('created_at',{ascending:false}).limit(20),sb.from('mb_transactions').select('*',{count:'exact',head:true}),sb.from('mb_notifications').select('*',{count:'exact',head:true})]);for(const r of [p,a,t,c,n,l,tc,nc])if(r.error)throw r.error;const accounts=new Map(a.data.map(x=>[x.user_id,x]));const profileNames=new Map(p.data.map(x=>[x.id,x.full_name]));$('admin-customers-count').textContent=p.data.length;$('admin-total-balance').textContent=money(a.data.reduce((s,x)=>s+Number(x.balance),0));$('admin-transactions-count').textContent=tc.count||0;$('admin-complaints-count').textContent=c.data.filter(x=>x.status!=='resolved').length;$('admin-notifications-count').textContent=nc.count||0;$('admin-customers').innerHTML=p.data.map(x=>{const ac=accounts.get(x.id)||{};return `<tr><td>${esc(x.full_name)}</td><td>${esc(x.email||'')}</td><td>${esc(x.phone||'')}</td><td>${esc(ac.account_number||'Pending')}</td><td>${money(ac.balance)}</td><td><span class="status ${esc(x.status)}">${esc(x.status)}</span></td><td><button class="action-button" data-user="${esc(x.id)}" data-status="${x.status==='active'?'suspended':'active'}">${x.status==='active'?'Suspend':'Activate'}</button></td></tr>`}).join('')||'<tr><td colspan="7">No registered customers yet.</td></tr>';$('admin-transactions').innerHTML=t.data.map(x=>`<tr><td>${esc(date(x.created_at))}</td><td>${esc(profileNames.get(x.user_id)||'Account holder')}</td><td>${esc(x.reference)}</td><td>${esc(x.type)}</td><td>${esc(x.direction)}</td><td>${money(x.amount)}</td><td>${money(x.balance_after)}</td></tr>`).join('')||'<tr><td colspan="7">No transactions recorded.</td></tr>';$('admin-complaints').innerHTML=c.data.map(x=>`<div class="activity"><b>${esc(x.issue_type)}</b> · ${esc(x.status)}<div>${esc(x.description)}</div><small>${esc(date(x.created_at))}</small><label>Update status<select data-complaint="${esc(x.id)}" class="complaint-status"><option value="open" ${x.status==='open'?'selected':''}>Open</option><option value="in progress" ${x.status==='in progress'?'selected':''}>In progress</option><option value="resolved" ${x.status==='resolved'?'selected':''}>Resolved</option></select></label></div>`).join('')||'<p class="muted">No complaints.</p>'; $('admin-notifications').innerHTML=n.data.map(x=>`<div class="activity">${esc(x.message)}<small>${esc(date(x.created_at))} · ${esc(x.status)}</small></div>`).join('')||'<p class="muted">No notifications.</p>';$('admin-audit').innerHTML=l.data.map(x=>`<div class="activity"><b>${esc(x.action)}</b><div>${esc(x.details||'')}</div><small>${esc(date(x.created_at))}</small></div>`).join('')||'<p class="muted">No audit events yet.</p>';}catch(e){console.error(e);alert('Administrator data could not be loaded: '+e.message)}}
   async function changeStatus(e){const b=e.target.closest('button[data-user]');if(!b)return;try{const {error}=await sb.from('mb_profiles').update({status:b.dataset.status}).eq('id',b.dataset.user);if(error)throw error;await loadAdmin();}catch(err){alert('Could not update customer status: '+err.message)}}
   async function updateComplaint(e){const s=e.target.closest('select[data-complaint]');if(!s)return;try{const {error}=await sb.from('mb_complaints').update({status:s.value}).eq('id',s.dataset.complaint);if(error)throw error;await loadAdmin();}catch(err){alert('Could not update complaint: '+err.message)}}
